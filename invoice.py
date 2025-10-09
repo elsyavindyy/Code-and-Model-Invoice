@@ -1,40 +1,47 @@
-# Install dulu kalau belum:
-# pip install ultralytics paddleocr opencv-python
+# Install library dulu kalau belum:
+# pip install ultralytics opencv-python pytesseract
+# Pastikan Tesseract OCR sudah terinstall: https://github.com/tesseract-ocr/tesseract
 
-from ultralytics import YOLO
 import cv2
-from paddleocr import PaddleOCR
+from ultralytics import YOLO
+import pytesseract
+
+# Tentukan path Tesseract (Windows)
+pytesseract.pytesseract.tesseract_cmd = r"C:\Program Files\Tesseract-OCR\tesseract.exe"
 
 # Load YOLO model
-model = YOLO("yolov8n.pt")  # ganti dengan model custommu kalau ada
+model = YOLO("yolov8n.pt")  # ganti dengan modelmu sendiri kalau ada
 
 # Load gambar
-image_path = "page_13.png"
+image_path = "gambar.jpg"
 image = cv2.imread(image_path)
 
-# Jalankan deteksi
+# Jalankan deteksi YOLO
 results = model(image_path)
 
-# Inisialisasi OCR
-ocr = PaddleOCR(use_angle_cls=True, lang='en')
-
-# Dictionary hasil akhir
+# Dictionary hasil OCR
 output = {}
 
 for result in results:
     boxes = result.boxes.xyxy.cpu().numpy()  # [x1, y1, x2, y2]
-    class_ids = result.boxes.cls.cpu().numpy()  # class index
-    class_names = [model.names[int(cls)] for cls in class_ids]  # nama label YOLO
+    class_ids = result.boxes.cls.cpu().numpy()
+    class_names = [model.names[int(cls)] for cls in class_ids]
     
     for i, box in enumerate(boxes):
         x1, y1, x2, y2 = map(int, box)
         cropped = image[y1:y2, x1:x2]
 
-        # OCR
-        ocr_result = ocr.ocr(cropped)
-        text = " ".join([line[1][0] for line in ocr_result[0]]) if ocr_result else ""
+        # OCR dengan Tesseract
+        text = pytesseract.image_to_string(cropped, lang='eng').strip()
 
-        # Simpan ke dictionary
-        output[class_names[i]] = text
+        # Split per baris
+        lines = [line.strip() for line in text.split('\n') if line.strip() != '']
 
+        # Split per kata di tiap baris
+        words_per_line = [line.split() for line in lines]
+
+        # Simpan hasil ke dictionary
+        output[class_names[i]] = words_per_line
+
+# Print hasil akhir
 print(output)
